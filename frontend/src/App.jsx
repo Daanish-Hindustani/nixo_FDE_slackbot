@@ -307,58 +307,61 @@ function App() {
 
                 {/* Metrics */}
                 <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
-                        <div className="metric-card-modern">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-[var(--status-warning-bg)] flex items-center justify-center">
-                                    <Activity className="w-5 h-5 text-[var(--status-warning)]" />
+                    {/* Metrics - Only show on Home/All Issues */}
+                    {activeView === 'all' && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
+                            <div className="metric-card-modern">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-[var(--status-warning-bg)] flex items-center justify-center">
+                                        <Activity className="w-5 h-5 text-[var(--status-warning)]" />
+                                    </div>
                                 </div>
+                                <div className="text-2xl font-bold mb-1">{activeIssues.length}</div>
+                                <div className="text-sm text-muted">Active Issues</div>
                             </div>
-                            <div className="text-2xl font-bold mb-1">{activeIssues.length}</div>
-                            <div className="text-sm text-muted">Active Issues</div>
-                        </div>
 
-                        <div className="metric-card-modern">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-[var(--status-success-bg)] flex items-center justify-center">
-                                    <CheckCircle className="w-5 h-5 text-[var(--status-success)]" />
+                            <div className="metric-card-modern">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-[var(--status-success-bg)] flex items-center justify-center">
+                                        <CheckCircle className="w-5 h-5 text-[var(--status-success)]" />
+                                    </div>
                                 </div>
+                                <div className="text-2xl font-bold mb-1">{resolvedIssues.length}</div>
+                                <div className="text-sm text-muted">Resolved Today</div>
                             </div>
-                            <div className="text-2xl font-bold mb-1">{resolvedIssues.length}</div>
-                            <div className="text-sm text-muted">Resolved Today</div>
-                        </div>
 
-                        <div className="metric-card-modern">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-[var(--status-info-bg)] flex items-center justify-center">
-                                    <BarChart3 className="w-5 h-5 text-[var(--status-info)]" />
+                            <div className="metric-card-modern">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-[var(--status-info-bg)] flex items-center justify-center">
+                                        <BarChart3 className="w-5 h-5 text-[var(--status-info)]" />
+                                    </div>
                                 </div>
+                                <div className="text-2xl font-bold mb-1">{totalMessages}</div>
+                                <div className="text-sm text-muted">Total Messages</div>
                             </div>
-                            <div className="text-2xl font-bold mb-1">{totalMessages}</div>
-                            <div className="text-sm text-muted">Total Messages</div>
-                        </div>
 
-                        <div className="metric-card-modern">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-lg bg-[var(--brand-primary-light)] flex items-center justify-center">
-                                    <Clock className="w-5 h-5 text-[var(--brand-primary)]" />
+                            <div className="metric-card-modern">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-[var(--brand-primary-light)] flex items-center justify-center">
+                                        <Clock className="w-5 h-5 text-[var(--brand-primary)]" />
+                                    </div>
                                 </div>
+                                <div className="text-2xl font-bold mb-1">~8s</div>
+                                <div className="text-sm text-muted">Avg Response</div>
                             </div>
-                            <div className="text-2xl font-bold mb-1">~8s</div>
-                            <div className="text-sm text-muted">Avg Response</div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Content based on active view */}
-                    {activeView === 'tickets' ? (
-                        /* Tickets View - Table Format */
+                    {activeView === 'tickets' || activeView === 'active' || activeView === 'resolved' ? (
+                        /* Table View for Tickets, Active, and Resolved */
                         <div className="card-modern">
-                            {issues.length === 0 ? (
+                            {(activeView === 'tickets' ? issues : activeView === 'active' ? activeIssues : resolvedIssues).length === 0 ? (
                                 <div className="p-12">
                                     <div className="empty-state">
                                         <Ticket className="empty-state-icon mx-auto" />
-                                        <h3 className="text-lg font-semibold mb-2">No tickets found</h3>
-                                        <p className="text-sm">There are no tickets to display at the moment.</p>
+                                        <h3 className="text-lg font-semibold mb-2">No items found</h3>
+                                        <p className="text-sm">There are no items to display at the moment.</p>
                                     </div>
                                 </div>
                             ) : (
@@ -374,7 +377,7 @@ function App() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {issues.map((issue, index) => (
+                                            {(activeView === 'tickets' ? issues : activeView === 'active' ? activeIssues : resolvedIssues).map((issue, index) => (
                                                 <Fragment key={issue.id}>
                                                     <tr
                                                         className="border-b border-[var(--border-light)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
@@ -548,7 +551,7 @@ function App() {
                             })()}
                         </div>
                     ) : (
-                        /* Issues Grid - Default View */
+                        /* Issues Grid - Default View (Only for 'all') */
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Issues List */}
                             <div className="lg:col-span-2">

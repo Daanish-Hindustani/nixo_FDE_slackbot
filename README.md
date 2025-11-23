@@ -42,6 +42,29 @@ A real-time dashboard for Forward-Deployed Engineers to track relevant customer 
 
 ### Slack Setup
 
-1.  Create a Slack App.
-2.  Enable Event Subscriptions and point to your ngrok URL + `/slack/events`.
-3.  Install the app to your workspace.
+1.  **Create App from Manifest:**
+    - Go to [Your Apps](https://api.slack.com/apps).
+    - Click "Create New App".
+    - Select "From an app manifest".
+    - Select your workspace.
+    - Copy the contents of `slack_manifest.json` (update ngrok url) and paste them into the YAML/JSON editor.
+    - Click "Create".
+
+2.  **Install App:**
+    - Navigate to "Install App" in the sidebar.
+    - Click "Install to Workspace".
+    - Authorize the app.
+
+3.  **Environment Variables:**
+    - Copy the "Bot User OAuth Token" (starts with `xoxb-`) and set it as `SLACK_BOT_TOKEN` in `backend/.env`.
+    - Go to "Basic Information" -> "App-Level Tokens".
+    - Generate a token with `connections:write` scope (if using Socket Mode) or just use the "Signing Secret" if using HTTP.
+    - *Note:* This app is configured for HTTP (Event Subscriptions).
+    - Ensure `OPENAI_API_KEY` is set in `backend/.env`.
+
+4.  **Ngrok Setup:**
+    - Start ngrok: `ngrok http 8000`.
+    - Copy the HTTPS URL (e.g., `https://your-id.ngrok-free.app`).
+    - Go to "Event Subscriptions" in your Slack App settings.
+    - Update the "Request URL" to `https://your-id.ngrok-free.app/slack/events`.
+    - It should verify successfully.

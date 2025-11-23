@@ -27,7 +27,7 @@
     },
     "settings": {
         "event_subscriptions": {
-            "request_url": "https://ommatidial-diamond-intertergal.ngrok-free.dev/slack/events",
+            "request_url": "{ngrok_url}/slack/events",
             "bot_events": [
                 "message.channels",
                 "message.groups",

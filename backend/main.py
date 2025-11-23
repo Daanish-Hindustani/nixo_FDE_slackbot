@@ -13,7 +13,6 @@ from database import create_db_and_tables, get_session, engine
 from services import process_message
 from models import Issue, Message
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store connected clients (queues)
 clients = []
 
 @app.on_event("startup")
@@ -61,7 +59,6 @@ async def resolve_issue(issue_id: int, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(issue)
     
-    # Broadcast update
     payload = {"type": "issue_resolved", "issue_id": issue.id}
     for queue in clients:
         await queue.put(payload)
@@ -89,12 +86,10 @@ async def slack_events(request: Request, background_tasks: BackgroundTasks):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # Handle URL Verification
     if data.get("type") == "url_verification":
         logger.info("Received url_verification challenge")
         return {"challenge": data.get("challenge")}
 
-    # Handle Event Callback
     if data.get("type") == "event_callback":
         event = data.get("event")
         logger.info(f"Received event: {event}")
@@ -107,7 +102,6 @@ async def slack_events(request: Request, background_tasks: BackgroundTasks):
     return {"status": "ignored"}
 
 async def process_message_task(event):
-    # Run sync DB operation in threadpool
     def db_op():
         with Session(engine) as session:
             return process_message(session, event)
@@ -115,7 +109,6 @@ async def process_message_task(event):
     msg = await run_in_threadpool(db_op)
     
     if msg:
-        # Broadcast to all connected clients
         logger.info(f"Broadcasting message: {msg.id}")
         payload = {"type": "new_message", "issue_id": msg.issue_id, "message_id": msg.id}
         for queue in clients:

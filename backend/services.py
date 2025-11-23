@@ -8,12 +8,9 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 import faiss
 
-# Load model once (global)
-# Warning: This downloads ~80MB on first run
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# ANN configuration
-EMBEDDING_DIM = 384  # dimension of the MiniLM embeddings
+EMBEDDING_DIM = 384
 
 SYSTEM_PROMPT = """
 You are an expert FDE assistant. Classify the following Slack message.
@@ -39,17 +36,8 @@ def classify_message(text: str):
     client = get_openai_client()
     
     if not client:
-        print("⚠️ No OpenAI API Key found. Using mock classification.")
-        # Mock logic for testing
-        lower_text = text.lower()
-        if "bug" in lower_text or "crash" in lower_text or "error" in lower_text:
-            return {"label": "bug_report", "is_relevant": True, "confidence": 0.9, "summary": f"Bug: {text[:30]}..."}
-        elif "help" in lower_text or "how" in lower_text:
-            return {"label": "support_question", "is_relevant": True, "confidence": 0.8, "summary": f"Support: {text[:30]}..."}
-        elif "feature" in lower_text or "add" in lower_text:
-             return {"label": "feature_request", "is_relevant": True, "confidence": 0.8, "summary": f"Feature: {text[:30]}..."}
-        else:
-            return {"label": "irrelevant", "is_relevant": False, "confidence": 0.0}
+        print("No OpenAI API Key found. Skipping classification.")
+        return {"label": "irrelevant", "is_relevant": False, "confidence": 0.0}
 
     try:
         response = client.chat.completions.create(
@@ -69,61 +57,60 @@ def get_embedding(text: str):
     return embedding_model.encode(text)
 
 
-def find_similar_issue(session: Session, embedding: np.ndarray, threshold: float = 0.7):
-    """Find the most similar Issue (open *or* closed) using FAISS ANN.
-
-    The function builds a temporary FAISS index from the latest embedding of each
-    issue, regardless of its status, and performs a single nearest‑neighbor search.
-    It returns the best matching Issue and its cosine similarity score (or
-    ``None, 0.0`` if no match exceeds the threshold).
-    """
-    # Gather the latest embedding for each issue (open or closed)
+def find_similar_issue(session: Session, embedding: np.ndarray, threshold: float = 0.55):
+    
     all_issues = session.exec(select(Issue)).all()
     vectors = []
     issue_ids = []
+    
+    # We will store multiple vectors per issue to compare against
+    # Map vector index back to issue_id
+    vector_to_issue_map = [] 
+
     for issue in all_issues:
-        # Get the most recent message with an embedding for this issue
-        msg = session.exec(
+        # Get last 5 messages for this issue
+        msgs = session.exec(
             select(Message.embedding)
             .where(Message.issue_id == issue.id)
             .order_by(Message.timestamp.desc())
-        ).first()
-        if not msg:
+            .limit(5)
+        ).all()
+        
+        if not msgs:
             continue
-        # Load and normalize the embedding
-        try:
-            vec = np.array(json.loads(msg)).astype("float32")
-        except (json.JSONDecodeError, TypeError):
-             continue
-             
-        norm = np.linalg.norm(vec)
-        if norm == 0:
-            continue
-        vec /= norm
-        vectors.append(vec)
-        issue_ids.append(issue.id)
+            
+        for msg_embedding_str in msgs:
+            try:
+                vec = np.array(json.loads(msg_embedding_str)).astype("float32")
+            except (json.JSONDecodeError, TypeError):
+                 continue
+                 
+            norm = np.linalg.norm(vec)
+            if norm == 0:
+                continue
+            vec /= norm
+            vectors.append(vec)
+            vector_to_issue_map.append(issue.id)
 
     if not vectors:
         return None, 0.0
 
-    # Build FAISS inner‑product index (cosine similarity when vectors are normalized)
     index = faiss.IndexFlatIP(EMBEDDING_DIM)
     index.add(np.stack(vectors))
 
-    # Prepare query embedding
     query = embedding.astype("float32")
     q_norm = np.linalg.norm(query)
     if q_norm == 0:
         return None, 0.0
     query /= q_norm
 
-    # Search for the nearest neighbour (k=1)
+    # Search for top 1 match
     distances, indices = index.search(query[None, :], 1)
     best_idx = int(indices[0][0])
     best_score = float(distances[0][0])
 
     if best_score > threshold:
-        best_issue_id = issue_ids[best_idx]
+        best_issue_id = vector_to_issue_map[best_idx]
         best_issue = session.get(Issue, best_issue_id)
         return best_issue, best_score
     return None, 0.0
@@ -134,7 +121,6 @@ def process_message(session: Session, slack_event: dict):
     ts = slack_event.get("ts")
     channel = slack_event.get("channel")
     
-    # De-duplication
     existing = session.exec(select(Message).where(Message.slack_ts == ts)).first()
     if existing:
         return None
@@ -144,26 +130,27 @@ def process_message(session: Session, slack_event: dict):
     if not classification["is_relevant"]:
         return None
 
-    # Generate embedding
     embedding_vec = get_embedding(text)
     embedding_json = json.dumps(embedding_vec.tolist())
 
-    # Clustering Logic
     issue, score = find_similar_issue(session, embedding_vec)
     
     if issue:
-        print(f"🔗 Grouping with existing issue '{issue.title}' (Score: {score:.2f})")
-        # Auto‑reopen if the issue is closed
+        print(f"Grouping with existing issue '{issue.title}' (Score: {score:.2f})")
         if getattr(issue, "status", None) == "closed":
             issue.status = "open"
+        # Update classification if the new message has a higher confidence or if it's currently None
+        if not issue.classification or (classification["confidence"] > 0.8):
+             issue.classification = classification["label"]
         issue.updated_at = datetime.utcnow()
         session.add(issue)
         session.commit()
     else:
-        print("🆕 Creating new issue")
+        print("Creating new issue")
         issue = Issue(
             title=classification.get("summary", text[:50]),
             summary=classification.get("summary"),
+            classification=classification["label"],
             updated_at=datetime.utcnow()
         )
         session.add(issue)
