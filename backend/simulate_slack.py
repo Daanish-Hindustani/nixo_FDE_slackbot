@@ -99,9 +99,21 @@ CONVERSATIONS = [
             {"user": "U001", "text": "Fixed! The issue was some test data that wasn't properly cleaned up.", "delay": 4},
         ]
     },
+    {
+        "name": "Thread Test - Bug with Follow-ups",
+        "channel": "C001",
+        "messages": [
+            {"user": "U004", "text": "Found a critical bug in the payment processing system. Transactions are failing silently.", "delay": 0, "is_thread_parent": True},
+            {"user": "U001", "text": "Can you provide the transaction IDs that failed?", "delay": 2, "in_thread": True},
+            {"user": "U004", "text": "Sure: TXN-12345, TXN-12346, TXN-12347", "delay": 1, "in_thread": True},
+            {"user": "U001", "text": "Looking at the logs now. Seems like a timeout issue with the payment gateway.", "delay": 3, "in_thread": True},
+            {"user": "U002", "text": "How many customers are affected?", "delay": 1, "in_thread": True},
+            {"user": "U004", "text": "About 15 transactions in the last hour. This is urgent!", "delay": 1, "in_thread": True},
+        ]
+    },
 ]
 
-def send_slack_event(channel_id: str, user_id: str, text: str, ts: str = None):
+def send_slack_event(channel_id: str, user_id: str, text: str, ts: str = None, thread_ts: str = None):
     """Send a simulated Slack message event to the backend."""
     if ts is None:
         ts = str(time.time())
@@ -118,10 +130,15 @@ def send_slack_event(channel_id: str, user_id: str, text: str, ts: str = None):
         }
     }
     
+    # Add thread_ts if this is a threaded message
+    if thread_ts:
+        event["event"]["thread_ts"] = thread_ts
+    
     try:
         response = requests.post(f"{BASE_URL}/slack/events", json=event)
+        thread_indicator = " [THREAD]" if thread_ts else ""
         if response.status_code == 200:
-            print(f"✓ [{CHANNELS.get(channel_id, channel_id)}] {USERS.get(user_id, user_id)}: {text[:50]}...")
+            print(f"✓ [{CHANNELS.get(channel_id, channel_id)}]{thread_indicator} {USERS.get(user_id, user_id)}: {text[:50]}...")
         else:
             print(f"✗ Error {response.status_code}: {response.text}")
     except requests.exceptions.RequestException as e:
@@ -134,6 +151,7 @@ def simulate_conversation(conversation: dict, delay_multiplier: float = 1.0):
     print(f"{'='*80}\n")
     
     base_ts = time.time()
+    thread_parent_ts = None
     
     for i, msg in enumerate(conversation['messages']):
         actual_delay = msg['delay'] * delay_multiplier * random.uniform(0.8, 1.2)
@@ -141,11 +159,19 @@ def simulate_conversation(conversation: dict, delay_multiplier: float = 1.0):
         
         ts = str(base_ts + sum(m['delay'] for m in conversation['messages'][:i+1]))
         
+        # Track the parent message for threads
+        if msg.get('is_thread_parent'):
+            thread_parent_ts = ts
+        
+        # Use thread_ts if this message is in a thread
+        thread_ts = thread_parent_ts if msg.get('in_thread') else None
+        
         send_slack_event(
             channel_id=conversation['channel'],
             user_id=msg['user'],
             text=msg['text'],
-            ts=ts
+            ts=ts,
+            thread_ts=thread_ts
         )
     
     print(f"\n✓ Conversation '{conversation['name']}' completed!\n")

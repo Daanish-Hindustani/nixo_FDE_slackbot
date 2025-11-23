@@ -2,6 +2,20 @@
 
 A real-time dashboard for Forward-Deployed Engineers to track and manage relevant customer messages from Slack. The system automatically classifies messages, groups related conversations, and provides a clean interface for monitoring issues.
 
+## Demo
+
+Watch the system in action:
+
+[![FDE Slackbot Demo](https://img.youtube.com/vi/lPOSFj8ePfs/0.jpg)](https://youtu.be/lPOSFj8ePfs)
+
+**[▶️ Watch Demo Video](https://youtu.be/lPOSFj8ePfs)**
+
+The demo shows:
+- Real-time message classification and filtering
+- Automatic grouping of related messages into issues
+- Dashboard interface for monitoring and resolving issues
+- Seamless integration with Slack conversations
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -13,6 +27,8 @@ A real-time dashboard for Forward-Deployed Engineers to track and manage relevan
 - [Troubleshooting](#troubleshooting)
 
 ## Architecture Overview
+
+📖 **[View Detailed Architecture Documentation](https://docs.google.com/document/d/12DZ9r9s0F-DMmN7_Pb-R7DB9M3qnOnwKmT1m7avKjds/edit?usp=sharing)**
 
 ### Components
 

@@ -10,12 +10,14 @@ class Issue(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     status: str = "open"
     classification: Optional[str] = None
+    embedding: Optional[str] = None
 
     messages: List["Message"] = Relationship(back_populates="issue")
 
 class Message(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     slack_ts: str = Field(index=True, unique=True)
+    thread_ts: Optional[str] = Field(default=None, index=True)
     channel_id: str
     user_id: str
     text: str
