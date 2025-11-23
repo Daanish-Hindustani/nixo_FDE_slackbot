@@ -62,13 +62,16 @@ def classify_message(text: str):
 def get_embedding(text: str):
     return embedding_model.encode(text)
 
-def format_embedding_text(text: str, user: str, channel: str) -> str:
-    return f"Channel: {channel} User: {user} Text: {text}"
+def format_embedding_text(text: str, user: str, channel: str, timestamp: str = "") -> str:
+    """Format text for embedding with metadata including channel, user, timestamp, and message text."""
+    time_str = f" Time: {timestamp}" if timestamp else ""
+    return f"Channel: {channel} User: {user}{time_str} Text: {text}"
 
 class VectorStore:
     def __init__(self, session: Session):
         self.index = faiss.IndexFlatIP(EMBEDDING_DIM)
-        self.issue_map: Dict[int, int] = {} 
+        self.issue_map: Dict[int, int] = {}  # Maps vector index to issue_id
+        self.issue_timestamps: Dict[int, datetime] = {}  # Maps issue_id to updated_at timestamp
         self.current_id = 0
         self._load_from_db(session)
 
@@ -86,6 +89,7 @@ class VectorStore:
                     vec /= norm
                     vectors.append(vec)
                     ids.append(issue.id)
+                    self.issue_timestamps[issue.id] = issue.updated_at
             except Exception as e:
                 logger.error(f"Error loading embedding for issue {issue.id}: {e}")
                 continue
@@ -96,7 +100,23 @@ class VectorStore:
                 self.issue_map[self.current_id + i] = issue_id
             self.current_id += len(vectors)
 
-    def search(self, embedding: np.ndarray, threshold: float = 0.70) -> Tuple[Optional[int], float]:
+    def search(self, embedding: np.ndarray, threshold: float = 0.70, 
+               query_timestamp: Optional[datetime] = None, 
+               temporal_weight: float = 0.3,
+               time_decay_hours: float = 24.0) -> Tuple[Optional[int], float]:
+        """
+        Search for similar issues with temporal weighting.
+        
+        Args:
+            embedding: Query embedding vector
+            threshold: Minimum combined score threshold
+            query_timestamp: Timestamp of the query message
+            temporal_weight: Weight for temporal similarity (0-1), remaining weight goes to semantic similarity
+            time_decay_hours: Half-life for temporal decay in hours
+        
+        Returns:
+            Tuple of (issue_id, combined_score) or (None, 0.0)
+        """
         if self.index.ntotal == 0:
             return None, 0.0
         
@@ -106,21 +126,54 @@ class VectorStore:
             return None, 0.0
         query /= q_norm
         
-        distances, indices = self.index.search(query[None, :], 1)
-        best_idx = int(indices[0][0])
-        best_score = float(distances[0][0])
+        # Get top K candidates for temporal reranking
+        k = min(5, self.index.ntotal)
+        distances, indices = self.index.search(query[None, :], k)
         
-        if best_idx != -1 and best_score > threshold and best_idx in self.issue_map:
-            return self.issue_map[best_idx], best_score
+        best_issue_id = None
+        best_combined_score = 0.0
+        
+        for i in range(k):
+            idx = int(indices[0][i])
+            semantic_score = float(distances[0][i])
+            
+            if idx == -1 or idx not in self.issue_map:
+                continue
+            
+            issue_id = self.issue_map[idx]
+            
+            # Calculate temporal score if timestamp is provided
+            if query_timestamp and issue_id in self.issue_timestamps:
+                issue_time = self.issue_timestamps[issue_id]
+                time_diff_hours = abs((query_timestamp - issue_time).total_seconds()) / 3600.0
+                
+                # Exponential decay: score = exp(-ln(2) * time_diff / half_life)
+                temporal_score = np.exp(-0.693147 * time_diff_hours / time_decay_hours)
+                
+                # Combine semantic and temporal scores
+                combined_score = (1 - temporal_weight) * semantic_score + temporal_weight * temporal_score
+            else:
+                # No temporal weighting, use semantic score only
+                combined_score = semantic_score
+            
+            if combined_score > best_combined_score:
+                best_combined_score = combined_score
+                best_issue_id = issue_id
+        
+        if best_issue_id and best_combined_score > threshold:
+            return best_issue_id, best_combined_score
         return None, 0.0
 
-    def add_issue(self, issue_id: int, embedding: np.ndarray):
+    def add_issue(self, issue_id: int, embedding: np.ndarray, timestamp: Optional[datetime] = None):
+        """Add a new issue to the vector store with optional timestamp."""
         vec = embedding.astype("float32")
         norm = np.linalg.norm(vec)
         if norm > 0:
             vec /= norm
             self.index.add(vec[None, :])
             self.issue_map[self.current_id] = issue_id
+            if timestamp:
+                self.issue_timestamps[issue_id] = timestamp
             self.current_id += 1
 
 _vector_store: Optional[VectorStore] = None
@@ -181,7 +234,7 @@ def process_message(session: Session, slack_event: dict):
     if not classification["is_relevant"]:
         return None
 
-    embedding_text = format_embedding_text(text, user, str(channel))
+    embedding_text = format_embedding_text(text, user, str(channel), ts)
     embedding_vec = get_embedding(embedding_text)
     embedding_json = json.dumps(embedding_vec.tolist())
 
@@ -197,7 +250,14 @@ def process_message(session: Session, slack_event: dict):
     # If not in a thread or parent not found, use similarity search
     if not issue:
         vector_store = get_vector_store(session)
-        issue_id, score = vector_store.search(embedding_vec, threshold=0.70)
+        msg_timestamp = datetime.fromtimestamp(float(ts))
+        issue_id, score = vector_store.search(
+            embedding_vec, 
+            threshold=0.70,
+            query_timestamp=msg_timestamp,
+            temporal_weight=0.3,  # 30% weight on time, 70% on semantic similarity
+            time_decay_hours=24.0  # Messages within 24 hours get higher temporal scores
+        )
         
         if issue_id:
             issue = session.get(Issue, issue_id)
@@ -252,7 +312,7 @@ def process_message(session: Session, slack_event: dict):
         issue.embedding = json.dumps(new_centroid.tolist())
         session.add(issue)
         session.commit()
-        vector_store.add_issue(issue.id, new_centroid)
+        vector_store.add_issue(issue.id, new_centroid, issue.updated_at)
         session.refresh(msg)
     
     with _ts_cache_lock:
