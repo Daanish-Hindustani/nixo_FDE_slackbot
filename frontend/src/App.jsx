@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import {
-    Activity, AlertCircle, CheckCircle, Bug, HelpCircle, Lightbulb,
+    Activity, CheckCircle,
     TrendingUp, Clock, BarChart3, Home, Inbox, Archive, Settings,
     Ticket, Users, ChevronDown
 } from 'lucide-react'
@@ -16,10 +16,15 @@ function App() {
     const [expandedUser, setExpandedUser] = useState(null)
     const [ticketMessages, setTicketMessages] = useState({})
     const selectedIssueRef = useRef(null)
+    const expandedTicketRef = useRef(null)
 
     useEffect(() => {
         selectedIssueRef.current = selectedIssue
     }, [selectedIssue])
+
+    useEffect(() => {
+        expandedTicketRef.current = expandedTicket
+    }, [expandedTicket])
 
     useEffect(() => {
         fetchIssues()
@@ -30,12 +35,22 @@ function App() {
             setIsConnected(true)
         }
 
-        eventSource.onmessage = (event) => {
+        eventSource.onmessage = async (event) => {
             const data = JSON.parse(event.data)
             if (data.type === "new_message") {
                 fetchIssues()
                 if (selectedIssueRef.current && selectedIssueRef.current.id === data.issue_id) {
                     fetchMessages(data.issue_id)
+                }
+                // Also update ticketMessages if this issue is currently expanded
+                if (expandedTicketRef.current === data.issue_id) {
+                    try {
+                        const res = await fetch(`http://localhost:8000/issues/${data.issue_id}/messages`)
+                        const messages = await res.json()
+                        setTicketMessages(prev => ({ ...prev, [data.issue_id]: messages }))
+                    } catch (error) {
+                        console.error("Error fetching updated messages:", error)
+                    }
                 }
             } else if (data.type === "issue_resolved") {
                 fetchIssues()
@@ -112,14 +127,7 @@ function App() {
         }
     }
 
-    const getIcon = (type) => {
-        switch (type) {
-            case 'bug_report': return <Bug className="w-4 h-4" />
-            case 'support_question': return <HelpCircle className="w-4 h-4" />
-            case 'feature_request': return <Lightbulb className="w-4 h-4" />
-            default: return <AlertCircle className="w-4 h-4" />
-        }
-    }
+
 
     const getBadgeClass = (type) => {
         switch (type) {
@@ -443,28 +451,55 @@ function App() {
                         /* Users View - User Cards */
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {(() => {
-                                // Extract unique users from issues and messages
+                                // Extract unique users from issues and all cached messages
                                 const userMap = new Map();
+                                const issueUserMap = new Map(); // Track which issues each user is involved in
+
+                                // First, collect users from issues themselves
                                 issues.forEach(issue => {
-                                    messages.forEach(msg => {
-                                        const userId = msg.user_id;
-                                        if (!userMap.has(userId)) {
-                                            userMap.set(userId, {
-                                                id: userId,
+                                    if (issue.user_id) {
+                                        if (!userMap.has(issue.user_id)) {
+                                            userMap.set(issue.user_id, {
+                                                id: issue.user_id,
                                                 messageCount: 0,
                                                 issueCount: 0,
-                                                lastActive: msg.timestamp
+                                                lastActive: issue.updated_at
                                             });
+                                            issueUserMap.set(issue.user_id, new Set());
                                         }
-                                        const user = userMap.get(userId);
-                                        user.messageCount++;
-                                        if (new Date(msg.timestamp) > new Date(user.lastActive)) {
-                                            user.lastActive = msg.timestamp;
+                                        issueUserMap.get(issue.user_id).add(issue.id);
+                                        const user = userMap.get(issue.user_id);
+                                        user.issueCount++;
+                                        if (new Date(issue.updated_at) > new Date(user.lastActive)) {
+                                            user.lastActive = issue.updated_at;
                                         }
-                                    });
+                                    }
                                 });
 
-                                // If no messages loaded, show placeholder users
+                                // Then, collect users from all cached ticket messages
+                                Object.values(ticketMessages).forEach(messageList => {
+                                    if (messageList) {
+                                        messageList.forEach(msg => {
+                                            const userId = msg.user_id;
+                                            if (!userMap.has(userId)) {
+                                                userMap.set(userId, {
+                                                    id: userId,
+                                                    messageCount: 0,
+                                                    issueCount: 0,
+                                                    lastActive: msg.timestamp
+                                                });
+                                                issueUserMap.set(userId, new Set());
+                                            }
+                                            const user = userMap.get(userId);
+                                            user.messageCount++;
+                                            if (new Date(msg.timestamp) > new Date(user.lastActive)) {
+                                                user.lastActive = msg.timestamp;
+                                            }
+                                        });
+                                    }
+                                });
+
+                                // If no users found, show empty state
                                 if (userMap.size === 0) {
                                     return (
                                         <div className="col-span-full">
@@ -472,7 +507,7 @@ function App() {
                                                 <div className="empty-state">
                                                     <Users className="empty-state-icon mx-auto" />
                                                     <h3 className="text-lg font-semibold mb-2">No users found</h3>
-                                                    <p className="text-sm">Select an issue to view user activity</p>
+                                                    <p className="text-sm">Users will appear here once issues are created</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -507,7 +542,7 @@ function App() {
                                                     </div>
                                                     <div className="bg-[var(--bg-secondary)] rounded-lg p-3">
                                                         <div className="text-xs text-muted mb-1">Issues</div>
-                                                        <div className="text-lg font-bold">{user.issueCount || 1}</div>
+                                                        <div className="text-lg font-bold">{user.issueCount}</div>
                                                     </div>
                                                 </div>
                                             </div>
