@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+sqlmodel
+openai
+python-dotenv
+python-multipart
+httpx
+sentence-transformers
+numpy
