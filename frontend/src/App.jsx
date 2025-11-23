@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import {
     Activity, AlertCircle, CheckCircle, Bug, HelpCircle, Lightbulb,
     TrendingUp, Clock, BarChart3, Home, Inbox, Archive, Settings,
-    Search, Filter, MoreHorizontal, Ticket, Users, ChevronDown
+    Ticket, Users, ChevronDown
 } from 'lucide-react'
 
 
@@ -15,9 +15,6 @@ function App() {
     const [expandedTicket, setExpandedTicket] = useState(null)
     const [expandedUser, setExpandedUser] = useState(null)
     const [ticketMessages, setTicketMessages] = useState({})
-    const [showFilterDropdown, setShowFilterDropdown] = useState(false)
-    const [selectedClassifications, setSelectedClassifications] = useState([])
-    const [selectedStatus, setSelectedStatus] = useState('all') // 'all', 'active', 'resolved'
     const selectedIssueRef = useRef(null)
 
     useEffect(() => {
@@ -149,26 +146,9 @@ function App() {
     const resolvedIssues = issues.filter(i => i.status === 'resolved')
     const totalMessages = issues.reduce((sum, issue) => sum + (issue.message_count || 0), 0)
 
-    // Apply all filters
-    let filteredIssues = activeView === 'active' ? activeIssues :
+    // Get filtered issues based on active view
+    const filteredIssues = activeView === 'active' ? activeIssues :
         activeView === 'resolved' ? resolvedIssues : issues
-
-    // Apply status filter
-    if (selectedStatus !== 'all') {
-        filteredIssues = filteredIssues.filter(issue =>
-            selectedStatus === 'active' ? issue.status !== 'resolved' : issue.status === 'resolved'
-        )
-    }
-
-    // Apply classification filter
-    if (selectedClassifications.length > 0) {
-        filteredIssues = filteredIssues.filter(issue =>
-            selectedClassifications.includes(issue.classification)
-        )
-    }
-
-    // Get unique classifications from all issues
-    const allClassifications = [...new Set(issues.map(i => i.classification).filter(Boolean))]
 
     return (
         <div className="flex h-screen bg-[var(--bg-secondary)]">
@@ -287,20 +267,6 @@ function App() {
                                     activeView === 'users' ? 'View user activity and statistics' :
                                         'Real-time customer issue monitoring and tracking'}
                             </p>
-                        </div>
-                        <div className="btn-group">
-                            <div className="relative">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                                <input
-                                    type="text"
-                                    placeholder="Search issues..."
-                                    className="search-input pl-10 w-64"
-                                />
-                            </div>
-                            <button className="btn-modern btn-secondary">
-                                <Filter className="w-4 h-4" />
-                                Filter
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -551,229 +517,159 @@ function App() {
                             })()}
                         </div>
                     ) : (
-                        /* Issues Grid - Default View (Only for 'all') */
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Issues List */}
-                            <div className="lg:col-span-2">
-                                {filteredIssues.length === 0 ? (
-                                    <div className="card-modern p-12">
-                                        <div className="empty-state">
-                                            <CheckCircle className="empty-state-icon mx-auto" />
-                                            <h3 className="text-lg font-semibold mb-2">No issues found</h3>
-                                            <p className="text-sm">All caught up! No {activeView} issues at the moment.</p>
-                                        </div>
+                        /* Issues List - Default View (Only for 'all') with expandable dropdowns */
+                        <div className="card-modern">
+                            {filteredIssues.length === 0 ? (
+                                <div className="p-12">
+                                    <div className="empty-state">
+                                        <CheckCircle className="empty-state-icon mx-auto" />
+                                        <h3 className="text-lg font-semibold mb-2">No issues found</h3>
+                                        <p className="text-sm">All caught up! No {activeView} issues at the moment.</p>
                                     </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {filteredIssues.map((issue, index) => (
-                                            <div
-                                                key={issue.id}
-                                                className={`issue-card ${selectedIssue?.id === issue.id ? 'selected' : ''}`}
-                                                onClick={() => setSelectedIssue(issue)}
-                                                style={{ animationDelay: `${index * 0.05}s` }}
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="avatar"
-                                                        style={{ background: getAvatarColor(issue.user_id || 'default') }}
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-light)]">
+                                            <tr>
+                                                <th className="text-left p-4 text-xs font-semibold text-muted uppercase">ID</th>
+                                                <th className="text-left p-4 text-xs font-semibold text-muted uppercase">Title</th>
+                                                <th className="text-left p-4 text-xs font-semibold text-muted uppercase">Type</th>
+                                                <th className="text-left p-4 text-xs font-semibold text-muted uppercase">Status</th>
+                                                <th className="text-left p-4 text-xs font-semibold text-muted uppercase">Updated</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredIssues.map((issue, index) => (
+                                                <Fragment key={issue.id}>
+                                                    <tr
+                                                        className="border-b border-[var(--border-light)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+                                                        onClick={() => handleTicketClick(issue)}
                                                     >
-                                                        <span className="text-white">
-                                                            {(issue.user_id || 'U')[0].toUpperCase()}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-start justify-between mb-2">
-                                                            <div className="flex-1">
-                                                                <h3 className="font-semibold text-base mb-1 truncate">
-                                                                    {issue.title}
-                                                                </h3>
-                                                                <p className="text-sm text-muted line-clamp-2">
-                                                                    {issue.summary || 'No summary available'}
-                                                                </p>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <ChevronDown
+                                                                    className={`w-4 h-4 transition-transform ${expandedTicket === issue.id ? 'rotate-180' : ''}`}
+                                                                />
+                                                                <span className="text-sm text-muted">#{String(issue.id).slice(0, 8)}</span>
                                                             </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="font-medium text-sm">{issue.title}</div>
+                                                            <div className="text-xs text-muted truncate max-w-md">{issue.summary}</div>
+                                                        </td>
+                                                        <td className="p-4">
                                                             <span className={`badge-modern ${getBadgeClass(issue.classification)}`}>
-                                                                {getIcon(issue.classification)}
-                                                                {issue.classification?.replace('_', ' ') || 'Unknown'}
+                                                                {issue.classification?.replace('_', ' ')}
                                                             </span>
-                                                            {issue.status === 'resolved' && (
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {issue.status === 'resolved' ? (
                                                                 <span className="badge-modern badge-success">
                                                                     <CheckCircle className="w-3 h-3" />
                                                                     Resolved
                                                                 </span>
+                                                            ) : (
+                                                                <span className="badge-modern badge-warning">Active</span>
                                                             )}
-                                                            <span className="text-xs text-subtle">
-                                                                {new Date(issue.updated_at).toLocaleString([], {
-                                                                    month: 'short',
-                                                                    day: 'numeric',
-                                                                    hour: '2-digit',
-                                                                    minute: '2-digit'
-                                                                })}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Issue Details */}
-                            <div className="lg:col-span-1">
-                                {selectedIssue ? (
-                                    <div className="card-modern sticky top-24 animate-fade-in">
-                                        <div className="p-6 border-b border-[var(--border-light)]">
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex-1">
-                                                    <h3 className="font-bold text-lg mb-2">{selectedIssue.title}</h3>
-                                                    <p className="text-sm text-muted mb-3">{selectedIssue.summary}</p>
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className={`badge-modern ${getBadgeClass(selectedIssue.classification)}`}>
-                                                            {getIcon(selectedIssue.classification)}
-                                                            {selectedIssue.classification?.replace('_', ' ')}
-                                                        </span>
-                                                        {selectedIssue.status === 'resolved' && (
-                                                            <span className="badge-modern badge-success">
-                                                                <CheckCircle className="w-3 h-3" />
-                                                                Resolved
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Elegant Collapsible Issue Details */}
-                                            <div className="collapsible mb-4">
-                                                <div
-                                                    className="collapsible-header"
-                                                    onClick={(e) => {
-                                                        const content = e.currentTarget.nextElementSibling;
-                                                        const icon = e.currentTarget.querySelector('.collapsible-icon');
-                                                        content.classList.toggle('open');
-                                                        icon.classList.toggle('open');
-                                                    }}
-                                                >
-                                                    <span className="collapsible-title">Issue Details</span>
-                                                    <svg
-                                                        className="collapsible-icon"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </div>
-                                                <div className="collapsible-content">
-                                                    <div className="collapsible-body">
-                                                        <div className="info-row">
-                                                            <span className="info-label">Created</span>
-                                                            <span className="info-value">
-                                                                {new Date(selectedIssue.created_at || selectedIssue.updated_at).toLocaleDateString([], {
-                                                                    month: 'short',
-                                                                    day: 'numeric',
-                                                                    year: 'numeric',
-                                                                    hour: '2-digit',
-                                                                    minute: '2-digit'
-                                                                })}
-                                                            </span>
-                                                        </div>
-                                                        <div className="info-row">
-                                                            <span className="info-label">Last Updated</span>
-                                                            <span className="info-value">
-                                                                {new Date(selectedIssue.updated_at).toLocaleDateString([], {
-                                                                    month: 'short',
-                                                                    day: 'numeric',
-                                                                    year: 'numeric',
-                                                                    hour: '2-digit',
-                                                                    minute: '2-digit'
-                                                                })}
-                                                            </span>
-                                                        </div>
-                                                        <div className="info-row">
-                                                            <span className="info-label">Messages</span>
-                                                            <span className="info-value">{messages.length}</span>
-                                                        </div>
-                                                        <div className="info-row">
-                                                            <span className="info-label">Classification</span>
-                                                            <span className={`badge-modern ${getBadgeClass(selectedIssue.classification)}`}>
-                                                                {selectedIssue.classification?.replace('_', ' ')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {selectedIssue.status !== 'resolved' && (
-                                                <button
-                                                    onClick={() => resolveIssue(selectedIssue.id)}
-                                                    className="btn-modern btn-success w-full"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    Mark as Resolved
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="p-6 max-h-[500px] overflow-y-auto">
-                                            <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-4">
-                                                Messages ({messages.length})
-                                            </h4>
-                                            {messages.length === 0 ? (
-                                                <div className="empty-state py-8">
-                                                    <p className="text-sm">No messages yet</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {messages.map((msg) => (
-                                                        <div key={msg.id} className="message-bubble">
-                                                            <div className="flex items-start gap-3 mb-2">
-                                                                <div
-                                                                    className="avatar avatar-sm"
-                                                                    style={{ background: getAvatarColor(msg.user_id) }}
-                                                                >
-                                                                    <span className="text-white">
-                                                                        {msg.user_id[0].toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <span className="font-semibold text-sm">User {msg.user_id}</span>
-                                                                        <span className="text-xs text-subtle">
-                                                                            {new Date(msg.timestamp).toLocaleString([], {
-                                                                                hour: '2-digit',
-                                                                                minute: '2-digit'
-                                                                            })}
-                                                                        </span>
+                                                        </td>
+                                                        <td className="p-4 text-sm text-muted">
+                                                            {new Date(issue.updated_at).toLocaleDateString([], {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </td>
+                                                    </tr>
+                                                    {expandedTicket === issue.id && (
+                                                        <tr className="bg-[var(--bg-secondary)]">
+                                                            <td colSpan="5" className="p-6">
+                                                                <div className="space-y-4">
+                                                                    {/* Issue Details Section */}
+                                                                    <div className="bg-[var(--bg-primary)] rounded-lg p-4 mb-4">
+                                                                        <h4 className="text-sm font-semibold mb-3">Issue Details</h4>
+                                                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                                                            <div>
+                                                                                <span className="text-muted">Created:</span>
+                                                                                <span className="ml-2">
+                                                                                    {new Date(issue.created_at || issue.updated_at).toLocaleDateString([], {
+                                                                                        month: 'short',
+                                                                                        day: 'numeric',
+                                                                                        hour: '2-digit',
+                                                                                        minute: '2-digit'
+                                                                                    })}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-muted">Messages:</span>
+                                                                                <span className="ml-2">{ticketMessages[issue.id]?.length || 0}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        {issue.status !== 'resolved' && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    resolveIssue(issue.id);
+                                                                                }}
+                                                                                className="btn-modern btn-success w-full mt-3"
+                                                                            >
+                                                                                <CheckCircle className="w-4 h-4" />
+                                                                                Mark as Resolved
+                                                                            </button>
+                                                                        )}
                                                                     </div>
-                                                                    <p className="text-sm mb-2">{msg.text}</p>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className={`badge-modern ${getBadgeClass(msg.classification)}`}>
-                                                                            {msg.classification?.replace('_', ' ')}
-                                                                        </span>
-                                                                        <span className="text-xs text-subtle">
-                                                                            {(msg.confidence * 100).toFixed(0)}% confidence
-                                                                        </span>
-                                                                    </div>
+
+                                                                    {/* Messages Section */}
+                                                                    <h4 className="text-sm font-semibold mb-3">Messages ({ticketMessages[issue.id]?.length || 0})</h4>
+                                                                    {ticketMessages[issue.id] && ticketMessages[issue.id].length > 0 ? (
+                                                                        ticketMessages[issue.id].map((msg) => (
+                                                                            <div key={msg.id} className="message-bubble">
+                                                                                <div className="flex items-start gap-3 mb-2">
+                                                                                    <div
+                                                                                        className="avatar avatar-sm"
+                                                                                        style={{ background: getAvatarColor(msg.user_id) }}
+                                                                                    >
+                                                                                        <span className="text-white">
+                                                                                            {msg.user_id[0].toUpperCase()}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                                            <span className="font-semibold text-sm">User {msg.user_id}</span>
+                                                                                            <span className="text-xs text-subtle">
+                                                                                                {new Date(msg.timestamp).toLocaleString([], {
+                                                                                                    hour: '2-digit',
+                                                                                                    minute: '2-digit'
+                                                                                                })}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <p className="text-sm mb-2">{msg.text}</p>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className={`badge-modern ${getBadgeClass(msg.classification)}`}>
+                                                                                                {msg.classification?.replace('_', ' ')}
+                                                                                            </span>
+                                                                                            <span className="text-xs text-subtle">
+                                                                                                {(msg.confidence * 100).toFixed(0)}% confidence
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <p className="text-sm text-muted">No messages yet</p>
+                                                                    )}
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="card-modern p-12 sticky top-24">
-                                        <div className="empty-state">
-                                            <TrendingUp className="empty-state-icon mx-auto" />
-                                            <h3 className="text-base font-semibold mb-2">Select an issue</h3>
-                                            <p className="text-sm">Choose an issue to view details and messages</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
