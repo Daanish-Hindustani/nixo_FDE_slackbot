@@ -6,10 +6,14 @@ from datetime import datetime
 import json
 import numpy as np
 from sentence_transformers import SentenceTransformer
+import faiss
 
 # Load model once (global)
 # Warning: This downloads ~80MB on first run
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# ANN configuration
+EMBEDDING_DIM = 384  # dimension of the MiniLM embeddings
 
 SYSTEM_PROMPT = """
 You are an expert FDE assistant. Classify the following Slack message.
@@ -64,37 +68,64 @@ def classify_message(text: str):
 def get_embedding(text: str):
     return embedding_model.encode(text)
 
+
 def find_similar_issue(session: Session, embedding: np.ndarray, threshold: float = 0.7):
-    # Get all open issues
-    open_issues = session.exec(select(Issue).where(Issue.status == "open")).all()
-    
-    best_issue = None
-    best_score = -1.0
-    
-    for issue in open_issues:
-        # Get recent messages in this issue to compare against
-        # For simplicity, let's compare against the *last* message in the issue
-        # Better: Compare against centroid, but that requires more state.
-        messages = session.exec(select(Message).where(Message.issue_id == issue.id)).all()
-        if not messages:
+    """Find the most similar Issue (open *or* closed) using FAISS ANN.
+
+    The function builds a temporary FAISS index from the latest embedding of each
+    issue, regardless of its status, and performs a single nearest‑neighbor search.
+    It returns the best matching Issue and its cosine similarity score (or
+    ``None, 0.0`` if no match exceeds the threshold).
+    """
+    # Gather the latest embedding for each issue (open or closed)
+    all_issues = session.exec(select(Issue)).all()
+    vectors = []
+    issue_ids = []
+    for issue in all_issues:
+        # Get the most recent message with an embedding for this issue
+        msg = session.exec(
+            select(Message.embedding)
+            .where(Message.issue_id == issue.id)
+            .order_by(Message.timestamp.desc())
+        ).first()
+        if not msg:
             continue
-            
-        # Check similarity with messages in this issue
-        for msg in messages:
-            if not msg.embedding:
-                continue
-            
-            msg_emb = np.array(json.loads(msg.embedding))
-            # Cosine similarity
-            score = np.dot(embedding, msg_emb) / (np.linalg.norm(embedding) * np.linalg.norm(msg_emb))
-            
-            if score > best_score:
-                best_score = score
-                best_issue = issue
+        # Load and normalize the embedding
+        try:
+            vec = np.array(json.loads(msg)).astype("float32")
+        except (json.JSONDecodeError, TypeError):
+             continue
+             
+        norm = np.linalg.norm(vec)
+        if norm == 0:
+            continue
+        vec /= norm
+        vectors.append(vec)
+        issue_ids.append(issue.id)
+
+    if not vectors:
+        return None, 0.0
+
+    # Build FAISS inner‑product index (cosine similarity when vectors are normalized)
+    index = faiss.IndexFlatIP(EMBEDDING_DIM)
+    index.add(np.stack(vectors))
+
+    # Prepare query embedding
+    query = embedding.astype("float32")
+    q_norm = np.linalg.norm(query)
+    if q_norm == 0:
+        return None, 0.0
+    query /= q_norm
+
+    # Search for the nearest neighbour (k=1)
+    distances, indices = index.search(query[None, :], 1)
+    best_idx = int(indices[0][0])
+    best_score = float(distances[0][0])
 
     if best_score > threshold:
+        best_issue_id = issue_ids[best_idx]
+        best_issue = session.get(Issue, best_issue_id)
         return best_issue, best_score
-    
     return None, 0.0
 
 def process_message(session: Session, slack_event: dict):
@@ -122,6 +153,9 @@ def process_message(session: Session, slack_event: dict):
     
     if issue:
         print(f"🔗 Grouping with existing issue '{issue.title}' (Score: {score:.2f})")
+        # Auto‑reopen if the issue is closed
+        if getattr(issue, "status", None) == "closed":
+            issue.status = "open"
         issue.updated_at = datetime.utcnow()
         session.add(issue)
         session.commit()
