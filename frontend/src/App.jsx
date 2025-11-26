@@ -331,12 +331,14 @@ function App() {
                         /* Table View for Tickets, Active, and Resolved */
                         <div className="card-modern">
                             {(activeView === 'tickets' ? issues : activeView === 'active' ? activeIssues : resolvedIssues).length === 0 ? (
-                                <div className="p-12">
-                                    <div className="empty-state">
-                                        <Ticket className="empty-state-icon mx-auto" />
-                                        <h3 className="text-lg font-semibold mb-2">No items found</h3>
-                                        <p className="text-sm">There are no items to display at the moment.</p>
+                                <div className="p-16 text-center">
+                                    <div className="w-24 h-24 bg-[var(--bg-tertiary)] rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Ticket className="w-12 h-12 text-[var(--text-tertiary)]" />
                                     </div>
+                                    <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)]">No items found</h3>
+                                    <p className="text-[var(--text-secondary)] max-w-md mx-auto">
+                                        There are no items to display in this view at the moment.
+                                    </p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
@@ -503,12 +505,14 @@ function App() {
                                 if (userMap.size === 0) {
                                     return (
                                         <div className="col-span-full">
-                                            <div className="card-modern p-12">
-                                                <div className="empty-state">
-                                                    <Users className="empty-state-icon mx-auto" />
-                                                    <h3 className="text-lg font-semibold mb-2">No users found</h3>
-                                                    <p className="text-sm">Users will appear here once issues are created</p>
+                                            <div className="card-modern p-16 text-center">
+                                                <div className="w-24 h-24 bg-[var(--bg-tertiary)] rounded-full flex items-center justify-center mx-auto mb-6">
+                                                    <Users className="w-12 h-12 text-[var(--text-tertiary)]" />
                                                 </div>
+                                                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)]">No users found</h3>
+                                                <p className="text-[var(--text-secondary)] max-w-md mx-auto">
+                                                    Users will appear here once issues are created and conversations start.
+                                                </p>
                                             </div>
                                         </div>
                                     );
@@ -555,12 +559,14 @@ function App() {
                         /* Issues List - Default View (Only for 'all') with expandable dropdowns */
                         <div className="card-modern">
                             {filteredIssues.length === 0 ? (
-                                <div className="p-12">
-                                    <div className="empty-state">
-                                        <CheckCircle className="empty-state-icon mx-auto" />
-                                        <h3 className="text-lg font-semibold mb-2">No issues found</h3>
-                                        <p className="text-sm">All caught up! No {activeView} issues at the moment.</p>
+                                <div className="p-16 text-center">
+                                    <div className="w-24 h-24 bg-[var(--bg-tertiary)] rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <CheckCircle className="w-12 h-12 text-[var(--text-tertiary)]" />
                                     </div>
+                                    <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)]">No issues found</h3>
+                                    <p className="text-[var(--text-secondary)] max-w-md mx-auto">
+                                        All caught up! There are no {activeView} issues requiring attention at the moment.
+                                    </p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">

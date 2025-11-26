@@ -7,50 +7,51 @@
 :root {
     /* Modern Light Theme - Production Level */
     --bg-primary: #ffffff;
-    --bg-secondary: #fafafa;
-    --bg-tertiary: #f5f5f5;
-    --bg-hover: #f0f0f0;
-    --bg-active: #e8e8e8;
+    --bg-secondary: #f8fafc; /* Slate-50 */
+    --bg-tertiary: #f1f5f9; /* Slate-100 */
+    --bg-hover: #e2e8f0; /* Slate-200 */
+    --bg-active: #cbd5e1; /* Slate-300 */
 
     /* Text Colors */
-    --text-primary: #1a1a1a;
-    --text-secondary: #666666;
-    --text-tertiary: #999999;
-    --text-placeholder: #c4c4c4;
+    --text-primary: #0f172a; /* Slate-900 */
+    --text-secondary: #475569; /* Slate-600 */
+    --text-tertiary: #94a3b8; /* Slate-400 */
+    --text-placeholder: #cbd5e1; /* Slate-300 */
 
     /* Border Colors */
-    --border-light: #f0f0f0;
-    --border-medium: #e0e0e0;
-    --border-dark: #d0d0d0;
+    --border-light: #e2e8f0; /* Slate-200 */
+    --border-medium: #cbd5e1; /* Slate-300 */
+    --border-dark: #94a3b8; /* Slate-400 */
 
-    /* Brand Colors - Vibrant Accents */
-    --brand-primary: #6366f1;
-    --brand-primary-hover: #4f46e5;
-    --brand-primary-light: #eef2ff;
+    /* Brand Colors - Indigo/Violet for a modern, tech feel */
+    --brand-primary: #6366f1; /* Indigo-500 */
+    --brand-primary-hover: #4f46e5; /* Indigo-600 */
+    --brand-primary-light: #e0e7ff; /* Indigo-100 */
+    --brand-secondary: #8b5cf6; /* Violet-500 */
 
-    /* Status Colors - Modern Palette */
-    --status-success: #10b981;
-    --status-success-bg: #ecfdf5;
-    --status-success-border: #d1fae5;
+    /* Status Colors - Softer, more harmonious */
+    --status-success: #10b981; /* Emerald-500 */
+    --status-success-bg: #ecfdf5; /* Emerald-50 */
+    --status-success-border: #a7f3d0; /* Emerald-200 */
 
-    --status-warning: #f59e0b;
-    --status-warning-bg: #fffbeb;
-    --status-warning-border: #fef3c7;
+    --status-warning: #f59e0b; /* Amber-500 */
+    --status-warning-bg: #fffbeb; /* Amber-50 */
+    --status-warning-border: #fde68a; /* Amber-200 */
 
-    --status-error: #ef4444;
-    --status-error-bg: #fef2f2;
-    --status-error-border: #fecaca;
+    --status-error: #ef4444; /* Red-500 */
+    --status-error-bg: #fef2f2; /* Red-50 */
+    --status-error-border: #fecaca; /* Red-200 */
 
-    --status-info: #3b82f6;
-    --status-info-bg: #eff6ff;
-    --status-info-border: #dbeafe;
+    --status-info: #3b82f6; /* Blue-500 */
+    --status-info-bg: #eff6ff; /* Blue-50 */
+    --status-info-border: #bfdbfe; /* Blue-200 */
 
-    /* Shadows - Subtle & Layered */
-    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    /* Shadows - Soft & Diffused */
+    --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.1), 0 1px 2px -1px rgba(15, 23, 42, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
 
     /* Spacing */
     --spacing-xs: 0.25rem;
