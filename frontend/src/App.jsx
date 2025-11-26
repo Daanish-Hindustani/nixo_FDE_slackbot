@@ -186,6 +186,14 @@ function App() {
         })
     }
 
+    const getIssuePrimaryUser = (issue) => {
+        const messagesForIssue = ticketMessages[issue.id]
+        if (messagesForIssue && messagesForIssue.length > 0) {
+            return messagesForIssue[0]?.user_id || issue.user_id
+        }
+        return issue.user_id
+    }
+
     const activeIssues = issues.filter(i => i.status !== 'resolved')
     const resolvedIssues = issues.filter(i => i.status === 'resolved')
 
@@ -331,7 +339,7 @@ function App() {
                                         </div>
                                         <div className="meta-block">
                                             <span className="meta-label">User</span>
-                                            <span className="meta-value">{issue.user_id || 'Unknown'}</span>
+                                    <span className="meta-value">{getIssuePrimaryUser(issue) || 'Unknown'}</span>
                                         </div>
                                     </div>
                                     {expandedTicket === issue.id && (
