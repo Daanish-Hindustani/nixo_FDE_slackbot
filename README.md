@@ -6,9 +6,9 @@ A real-time dashboard for Forward-Deployed Engineers to track and manage relevan
 
 Watch the system in action:
 
-[![FDE Slackbot Demo](https://img.youtube.com/vi/lPOSFj8ePfs/0.jpg)](https://youtu.be/lPOSFj8ePfs)
+[![FDE Slackbot Demo](https://img.youtube.com/vi/lPOSFj8ePfs/0.jpg)](https://youtu.be/w7_5t25eKeE)
 
-**[▶️ Watch Demo Video](https://youtu.be/lPOSFj8ePfs)**
+**[▶️ Watch Demo Video](https://youtu.be/w7_5t25eKeE)**
 
 The demo shows:
 - Real-time message classification and filtering
